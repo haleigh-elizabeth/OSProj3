@@ -1,5 +1,6 @@
-#include "io_helper.h"
+//#include "io_helper.h"
 #include "request.h"
+#include <stdio.h>
 
 #define MAXBUF (8192)
 
@@ -8,14 +9,49 @@ int num_threads = DEFAULT_THREADS;
 int buffer_max_size = DEFAULT_BUFFER_SIZE;
 int scheduling_algo = DEFAULT_SCHED_ALGO;	
 
-//
+//creating buffer 
+//#define buffer_size;
+
+typedef struct {
+    int fd; 
+    char filename [MAXBUF];
+    int buffer_size;
+} request_t;
+req.array.add(request_t);
+
 //	TODO: add code to create and manage the shared global buffer of requests
+void write_to_buffer {
+    // should i use a cache buffer? 
+
 //	HINT: You will need synchronization primitives.
 //		pthread_mutuex_t lock_var is a viable option.
-//
+// lock when copying data to buffer?
 
-//
 // Sends out HTTP response in case of errors
+// verify if the request type is GET or not
+    if (strcasecmp(method, "GET")) {
+	    request_error(fd, method, "501", "Not Implemented", "server does not implement this method");
+	    return;
+      }
+      request_read_headers(fd);
+    
+    // check requested content type (static/dynamic)
+     is_static = request_parse_uri(uri, filename, cgiargs);
+    
+    // get some data regarding the requested file, also check if requested file is present on server
+     if (stat(filename, &sbuf) < 0) {
+	    request_error(fd, filename, "404", "Not found", "server could not find this file");
+	    return;
+     }
+    
+    // verify if requested content is static
+     if (is_static) {
+	    if (!(S_ISREG(sbuf.st_mode)) || !(S_IRUSR & sbuf.st_mode)) {
+	    	request_error(fd, filename, "403", "Forbidden", "server could not read this file");
+	    	return;
+	    }
+     }
+}
 //
 void request_error(int fd, char *cause, char *errnum, char *shortmsg, char *longmsg) {
     char buf[MAXBUF], body[MAXBUF];
