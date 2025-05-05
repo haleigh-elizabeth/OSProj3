@@ -2,6 +2,7 @@
 #include "request.h"
 #include <stdio.h>
 #include <pthread.h>
+#include <stdlib.h>
 
 
 
@@ -13,6 +14,8 @@ int buffer_max_size = DEFAULT_BUFFER_SIZE;
 int scheduling_algo = DEFAULT_SCHED_ALGO;	
 
 pthread_cond_t notempty_buffer = PTHREAD_COND_INITIALIZER;
+pthread_cond_t notfull_buffer = PTHREAD_COND_INITIALIZER;
+
 
 //creating buffer 
 //#define buffer_size;
@@ -166,8 +169,17 @@ void* thread_request_serve_static(void* arg)
     {
     case arg == 0:
         /* case of FIFO */
-        for (i=0, i< buffer_size-1, i++){
-            request = reqbuffer[i]
+        for (i=0, i < buffer_size-1, i++){
+            request = reqbuffer[i];
+            // shrink the array after
+            for (j=0, j < buffer_size-1, j++){
+                reqbuffer[j] = reqbuffer[j+1];
+            }
+            //process request
+            request_serve_static(request.fd, request.filename, request.buffer_size);
+            close_or_die(request.fd);
+            //decrement size of buffer
+            buffer_size--;
         }
         break;
     case arg == 1:
@@ -175,8 +187,20 @@ void* thread_request_serve_static(void* arg)
         break;
     case arg == 2:
         // case of Random
+        for (k=0, k < buffer_size-1, k++){
+            //select a random number and the pull that value from the buffer
+            int rand_value = rand();
+            reqbuffer[rand_value];
+            //process request 
+            request_serve_static(request.fd, request.filename, request.buffer_size);
+            close_or_die(request.fd);
+            //decrement size of buffer and take out the processed request
+            buffer_size = buffer_size - buffer_size[rand_value];
+        }
         break;
     }
+    pthread_mutex_unlock(&reqbufferLock);
+    pthread_cond_signal(&notfull_buffer);
 }
 
 //
