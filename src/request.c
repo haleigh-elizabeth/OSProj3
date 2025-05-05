@@ -1,6 +1,9 @@
-//#include "io_helper.h"
+#include "io_helper.h"
 #include "request.h"
 #include <stdio.h>
+#include <pthread.h>
+
+
 
 #define MAXBUF (8192)
 
@@ -8,6 +11,8 @@
 int num_threads = DEFAULT_THREADS;
 int buffer_max_size = DEFAULT_BUFFER_SIZE;
 int scheduling_algo = DEFAULT_SCHED_ALGO;	
+
+pthread_cond_t notempty_buffer = PTHREAD_COND_INITIALIZER;
 
 //creating buffer 
 //#define buffer_size;
@@ -17,42 +22,11 @@ typedef struct {
     char filename [MAXBUF];
     int buffer_size;
 } request_t;
-req.array.add(request_t);
+//req.array.add(request_t);
+request_t reqbuffer[MAXBUF];
+pthread_mutex_t reqbufferLock;
+int buffer_size = 0;
 
-//	TODO: add code to create and manage the shared global buffer of requests
-void write_to_buffer {
-    // should i use a cache buffer? 
-
-//	HINT: You will need synchronization primitives.
-//		pthread_mutuex_t lock_var is a viable option.
-// lock when copying data to buffer?
-
-// Sends out HTTP response in case of errors
-// verify if the request type is GET or not
-    if (strcasecmp(method, "GET")) {
-	    request_error(fd, method, "501", "Not Implemented", "server does not implement this method");
-	    return;
-      }
-      request_read_headers(fd);
-    
-    // check requested content type (static/dynamic)
-     is_static = request_parse_uri(uri, filename, cgiargs);
-    
-    // get some data regarding the requested file, also check if requested file is present on server
-     if (stat(filename, &sbuf) < 0) {
-	    request_error(fd, filename, "404", "Not found", "server could not find this file");
-	    return;
-     }
-    
-    // verify if requested content is static
-     if (is_static) {
-	    if (!(S_ISREG(sbuf.st_mode)) || !(S_IRUSR & sbuf.st_mode)) {
-	    	request_error(fd, filename, "403", "Forbidden", "server could not read this file");
-	    	return;
-	    }
-     }
-}
-//
 void request_error(int fd, char *cause, char *errnum, char *shortmsg, char *longmsg) {
     char buf[MAXBUF], body[MAXBUF];
     
@@ -177,6 +151,32 @@ void* thread_request_serve_static(void* arg)
 {
     // TODO: write code to actualy respond to HTTP requests
     // Pull from global buffer of requests
+    // 0 - FIFO, 1 - SFF, 2 - RANDOM
+    // get indv. requests from buffer
+    // lock buffer array before reading
+    pthread_mutex_lock(&reqbufferLock);
+        
+    while (buffer_size == 0){
+        pthread_cond_wait(&notempty_buffer, &reqbufferLock);
+    }
+    // signal that we are ready to start
+    pthread_cond_signal(&notempty_buffer);
+    request_t request;
+    switch (arg)
+    {
+    case arg == 0:
+        /* case of FIFO */
+        for (i=0, i< buffer_size-1, i++){
+            request = reqbuffer[i]
+        }
+        break;
+    case arg == 1:
+        /* case of SFF */
+        break;
+    case arg == 2:
+        // case of Random
+        break;
+    }
 }
 
 //
@@ -217,7 +217,33 @@ void request_handle(int fd) {
 	}
     
 	// TODO: directory traversal mitigation	
+    if (strstr(uri, "../")){
+        request_error(fd, filename,  "403", "Forbidden", "server could not read this file");
+        return;
+    }
+
 	// TODO: write code to add HTTP requests in the buffer
+    //	TODO: add code to create and manage the shared global buffer of requests
+
+    // should i use a cache buffer? no.
+
+//	HINT: You will need synchronization primitives.
+//		pthread_mutuex_t lock_var is a viable option.
+
+// lock when copying data to buffer?
+// Schrick said to use a "request buffer"
+
+// Sends out HTTP response in case of errors
+// verify if the request type is GET or not
+        request_t request = {fd, filename, sbuf.st_size};
+        // lock the buffer & specify what you are locking (buffer)
+        pthread_mutex_lock(&reqbufferLock);
+        // add request to array
+        reqbuffer[buffer_size] = {request};
+        //increase buffer size 
+        buffer_size++;
+        //unlock buffer
+        pthread_mutex_unlock(&reqbufferLock);
 
     } else {
 	request_error(fd, filename, "501", "Not Implemented", "server does not serve dynamic content request");
