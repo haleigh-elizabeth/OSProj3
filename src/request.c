@@ -4,7 +4,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 
-
+// Worked with Eli in the tutoring lab for some of this
 
 #define MAXBUF (8192)
 
@@ -169,10 +169,10 @@ void* thread_request_serve_static(void* arg)
     {
     case arg == 0:
         /* case of FIFO */
-        for (i=0, i < buffer_size-1, i++){
+        for (i = 0, i < buffer_size-1, i++){
             request = reqbuffer[i];
             // shrink the array after
-            for (j=0, j < buffer_size-1, j++){
+            for (j = 0, j < buffer_size-1, j++){
                 reqbuffer[j] = reqbuffer[j+1];
             }
             //process request
@@ -184,6 +184,20 @@ void* thread_request_serve_static(void* arg)
         break;
     case arg == 1:
         /* case of SFF */
+        // while starvation mode remains under 50, run
+        while(starvation_switch < 10){
+            //int smallest_file = 0 ;
+            int smallest_file_size = 0;
+
+            for(i = 0, i < buffer_size-1, i++){
+                if (filesize < smallest_file_size)
+                smallest_file_size = filesize;
+                //process it
+                request_serve_static(request.fd, request.filename, request.buffer_size);
+                close_or_die(request.fd);
+        }
+        // else if starvation mode of 10 iterations has been reached, quit
+        }
         break;
     case arg == 2:
         // case of Random
